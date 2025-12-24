@@ -9,7 +9,7 @@
       "stopAtEntry": false,
       "externalConsole": false,
       "cwd": "/home/dnet/src/suckless/dwm-dnet",
-      "program": "/home/dnet/src/suckless/dwm-dnet/build/Debug/outDebug",
+      "program": "/home/dnet/src/suckless/dwm-dnet/build/Release/outRelease",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [
