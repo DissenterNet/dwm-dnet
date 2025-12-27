@@ -51,26 +51,20 @@
 #endif /* __OpenBSD */
 
 /* breakout includes */
-/*#include "utils/keys/keymode-default.h"*/
-/*#include "utils/keys/keymode-normal.h"*/
-/*#include "utils/keys/keymode-test.h"*/
-#include "utils/keys/keymode_vim.h"
-#include "utils/keys/keymode_vim_insert.h"
-#include "utils/keys/keymode_vim_visual.h"
+/*#include "keys/keymode-default.h"*/
+/*#include "keys/keymode-normal.h"*/
+/*#include "keys/keymode-test.h"*/
+/*#include "keys/keymode-vim.h"*/
 
 /* /buttons/ */
-/*#include "utils/buttons/bmode-alt.h"*/
-/*#include "utils/buttons/bmode-default.h"*/
-/*#include "utils/buttons/bmode-normal.h"*/
-/*#include "utils/buttons/bmode-resize.h"*/
+/*#include "buttons/bmode-alt.h"*/
+/*#include "buttons/bmode-default.h"*/
+/*#include "buttons/bmode-normal.h"*/
+/*#include "buttons/bmode-resize.h"*/
 
 /* /chords/ */
-#include "utils/chords/chord_vim.h"
-/*#include "utils/chords/chord_test.h"*/
-
-#include "utils/helpers/helpers_vim.h"
-#include "utils/helpers/vim_modes.h"
-#include "utils/helpers/vim_motions.h"
+/*#include "chords/chord-vim.h"*/
+/*#include "chords/chord-test.h"*/
 
 #include "drw.h"
 #include "util.h"
@@ -194,8 +188,6 @@ typedef struct { /* key press interactions */
 #define KEYMODE_VIM   		2
 #define KEYMODE_TESTING  	3
 #define KEYMODE_ADMIN	 	4
-#define KEYMODE_VIM_INSERT   	5
-#define KEYMODE_VIM_VISUAL   	6
 
 /* Button modes (separate namespace) */
 #define BMODE_ANY  			-1
@@ -3369,3 +3361,4 @@ main(int argc, char *argv[])
 	XCloseDisplay(dpy);
 	return EXIT_SUCCESS;
 }
+

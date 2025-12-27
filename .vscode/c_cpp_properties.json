@@ -3,11 +3,14 @@
     {
       "name": "linux-gcc-x64",
       "includePath": [
-        "${workspaceFolder}/**"
+        "${workspaceFolder}/**",
+        "/usr/include",
+        "/usr/include/freetype2",
+        "/usr/X11R6/include"
       ],
       "compilerPath": "/usr/bin/gcc",
-      "cStandard": "${default}",
-      "cppStandard": "${default}",
+      "cStandard": "c11",
+      "cppStandard": "c++17",
       "intelliSenseMode": "linux-gcc-x64",
       "compilerArgs": [
         ""

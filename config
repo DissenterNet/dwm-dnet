@@ -1,4 +1,5 @@
 /*
+
 patches applied (incl. some slight changes):
 
 dwm-bartoggle-keybinds-6.4.diff                 ----- toggle pieces of the bar
@@ -19,54 +20,6 @@ dwm-swallow-6.3.diff                            ----- terminal swallows launched
 dwm-vanitygaps-6.2.diff                         ----- gaps are functional: your eye is less inclined to drift while working.
 dwm-xrdb-6.4.diff                               ----- xresource database colors
 */
-
-/* -------------------------
- * Mode & trigger compatibility helpers
- * -------------------------
- *
- * dwm.c provides the canonical definitions for key/button modes and the KeyTrigger
- * enum. Config should NOT re-declare those enums (they collide with the macros/typedefs
- * in dwm.c and cause preprocessor / enum redefinition errors).
- *
- * This section provides small compatibility fallbacks for configs that expect
- * KEYMODE_DEFAULT or BMODE_DEFAULT macros, but otherwise defers to the
- * definitions in dwm.c.
- */
-
-/* KEYMODE_ANY is expected to be defined by dwm.c before config.h is included.
- * If it isn't, provide a safe fallback (rare).
- */
-#ifndef KEYMODE_ANY
-#define KEYMODE_ANY -1
-#endif
-
-/* Provide a default keymode symbol the config can use when it previously used
- * KEYMODE_DEFAULT. Mapping it to KEYMODE_ANY would make every key global; mapping
- * it to KEYMODE_NORMAL keeps current behavior. Use NORMAL for backwards compatibility.
- */
-#ifndef KEYMODE_DEFAULT
-#define KEYMODE_DEFAULT 0
-#endif
-
-/* Provide a default button-mode symbol for config convenience */
-#ifndef BMODE_DEFAULT
-#define BMODE_DEFAULT 0
-#endif
-
-
-/* chord timeout (ms) — dwm.c defines chordtimeoutms; set a safe default here if not set */
-#ifndef chordtimeoutms
-static int chordtimeoutms = 800;
-#endif
-
-/* provide a fallback empty keychords array so sizeof(keychords) works if no chords are defined yet.
- * Real chords should be created in chords/ and then provide a compile-time array of pointers:
- *   static Keychord *keychords[] = { &kc1, &kc2, NULL };
- */
-/*#ifndef KEYCHORDS_FALLBACK*/
-/*static Keychord *keychords[] = { NULL };*/
-/*#endif*/
-
 
 /* appearance */
 static unsigned int borderpx        = 1;        /* border pixel of windows */
@@ -108,37 +61,9 @@ static char *colors[][3] = {
 		[SchemeInfoNorm]  = { normfgcolor, normbgcolor,  normbgcolor  }, /* info M unselected */
 };
 
-/* breakout includes */
-
-/* helper functions that rely on dwm symbols */
-/*#include "helpers/helper.h"*/
-#include "helpers/helpers_vim.h"
-
-
-/* keymaps (per-mode) */
-#include "keys/key.h"
-/*#include "keys/keymode-default.h"*/
-/*#include "keys/keymode-normal.h"*/
-/*#include "keys/keymode-test.h"*/
-#include "keys/keymode_vim.h"
-#include "keys/keymode_vim_insert.h"
-#include "keys/keymode_vim_visual.h"
-
-/* /buttons/ */
-#include "buttons/button.h"
-/*#include "buttons/bmode-alt.h"*/
-/*#include "buttons/bmode-default.h"*/
-/*#include "buttons/bmode-normal.h"*/
-/*#include "buttons/bmode-resize.h"*/
-
-/* /chords/ */
-#include "chords/chords_decl.h"
-#include "chords/chord.h"
-
 
 /* tagging */
-const char *tags[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9" };
-const int ntags = LENGTH(tags);
+static const char *tags[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9" };
 // static const char *tags[] = { "󰎤", "󰎧", "󰎪", "󰎭", "󰎱", "󰎳", "󰎶", "󰎹", "󰎼" };
 
 
@@ -152,6 +77,9 @@ static const Rule rules[] = {
 	{ "fzfmenu", NULL,     "fzf", 	       0,         1,          1,           1,        -1 }, /* xev */
 	{ NULL,      NULL,     "Event Tester", 0,         0,          0,           1,        -1 }, /* xev */
 };
+
+#include "vanitygaps.c"
+
 
 /* layout(s) */
 static const float mfact        = 0.55; /* factor of master area size [0.05..0.95] */
@@ -169,9 +97,6 @@ static const Layout layouts[] = { /* alt glyphs: 󱡗 󱏋 */
 	{ "󰫥",      dwindle },
 };
 
-#ifndef KX
-#define KX(MOD, KEY, ACTION, TAG) { (MOD), (KEY), (ACTION), (TAG), KEYMODE_DEFAULT, KeyPressOnly }
-#endif
 
 /* key definitions */
 #define MODKEY Mod4Mask // windows key
@@ -222,7 +147,6 @@ static const Key keys[] = {
 	{ MODKEY,                       XK_d,      spawn,          {.v = dmenucmd } },
 	{ MODKEY,                       XK_Return, spawn,          {.v = termcmd } },
 	{ MODKEY|ShiftMask,             XK_b,      togglebar,      {0} },
-	{ MODKEY|ShiftMask,             XK_v,      setkeymode,     {.i = KEYMODE_VIM} }, /* Switch to vim mode */
 	STACKKEYS(MODKEY,                          focus)
 	STACKKEYS(MODKEY|ShiftMask,                push)
 	{ MODKEY|ShiftMask,             XK_i,      incnmaster,     {.i = +1 } }, /* increase # of master windows */
@@ -341,11 +265,6 @@ static const Key keys[] = {
 	{ MODKEY,				XK_F5,     spawn,       SHCMD("amixer -D pulse sset Master 5%-") },
 };
 
-
-#ifndef B
-/* Button initializer macro: click, mask, button, func, arg, bmode */
-#define B(click, mask, button, func, arg) { (click), (mask), (button), (func), (arg), BMODE_DEFAULT }
-#endif
 
 /* button definitions */
 /* click can be ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle, ClkClientWin, or ClkRootWin */

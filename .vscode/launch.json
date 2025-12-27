@@ -8,8 +8,8 @@
       "args": [],
       "stopAtEntry": false,
       "externalConsole": false,
-      "cwd": "/home/dnet/src/suckless/dwm-dnet",
-      "program": "/home/dnet/src/suckless/dwm-dnet/build/Release/outRelease",
+      "cwd": "/home/dnet/src/suckless/dwm-dnet/chords",
+      "program": "/home/dnet/src/suckless/dwm-dnet/chords/build/Debug/outDebug",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [

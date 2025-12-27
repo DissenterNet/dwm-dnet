@@ -1,0 +1,485 @@
+--- a/dwm.c
++++ b/dwm.c
+@@
+ typedef struct { /* mouse button interactions */
+ 	unsigned int click; /* where the click happened */
+ 	unsigned int mask; /* modifier keys */
+ 	unsigned int button; /* the mouse button used */
+ 	void (*func)(const Arg *arg); /* a pointer to the function that should be executed */
+ 	const Arg arg; /* argument to pass into the function */
+-} Button;
++	int bmode; /* BUTTONMODE_ANY or specific button mode */
++} Button;
+@@
+ typedef struct { /* key press interactions */
+ 	unsigned int mod;
+ 	KeySym keysym;
+ 	void (*func)(const Arg *);
+ 	const Arg arg;
+-} Key;
++	int mode; /* KEYMODE_ANY or specific mode */
++} Key;
++
++/* ---------- key trigger types (press/hold/release) ---------- */
++typedef enum {
++    KeyPressOnly = 0,
++    KeyReleaseOnly,
++    KeyHold
++} KeyTrigger;
++
+@@
++/* -------------------- key mode system -------------------- */
++#define KEYMODE_ANY  -1
++#define MODE_NORMAL   0
++#define MODE_ALT      1
++#define MODE_SCREEN   2
++#define MODE_ADMIN    3
++#define MAX_KEY_MODES 4
++
++static int keymode = MODE_NORMAL;
++
++void
++setkeymode(const Arg *arg)
++{
++	if (!arg)
++		return;
++	keymode = arg->i;
++	grabkeys();
++	drawbars();
++}
++
++void
++cyckeymode(const Arg *arg)
++{
++	(void)arg;
++	keymode = (keymode + 1) % MAX_KEY_MODES;
++	grabkeys();
++	drawbars();
++}
++
++/* -------------------- button mode system (separate names) -------------------- */
++#define BUTTONMODE_ANY  -1
++#define BMODE_NORMAL     0
++#define BMODE_MOVE       1
++#define BMODE_RESIZE     2
++#define BMODE_SPECIAL    3
++
++static int buttonmode = BMODE_NORMAL;
++
++/* Re-apply grabs for all clients (call when buttonmode changes) */
++void
++refresh_button_grabs(void)
++{
++	Monitor *m;
++	Client *c;
++	for (m = mons; m; m = m->next)
++		for (c = m->clients; c; c = c->next)
++			grabbuttons(c, c == m->sel);
++}
++
++void
++setbuttonmode(const Arg *arg)
++{
++	if (!arg)
++		return;
++	buttonmode = arg->i;
++	refresh_button_grabs();
++	drawbars();
++}
++
++void
++cycbuttonmode(const Arg *arg)
++{
++	(void)arg;
++	buttonmode = (buttonmode + 1) % 4;
++	refresh_button_grabs();
++	drawbars();
++}
++
+@@
+ static void (*handler[LASTEvent]) (XEvent *) = { /* maps X event type to matching function */
+ 	[ButtonPress] = buttonpress, /* mouse button */
+ 	[ClientMessage] = clientmessage, /* messages sent from windows, like fullscreen toggle */
+ 	[ConfigureRequest] = configurerequest, /* window (client) asks to change geometry */
+ 	[ConfigureNotify] = configurenotify, /* root window geom changes */
+ 	[DestroyNotify] = destroynotify, /* window closed - removes client from dwm */
+ 	[EnterNotify] = enternotify, /* mouse enters a window */
+ 	[Expose] = expose, /* a part of the window needs to be redrawn */
+ 	[FocusIn] = focusin,
+-	[KeyPress] = keypress, /* keyboard */
++	[KeyPress] = keypress, /* keyboard */
++	[KeyRelease] = NULL, /* patched in later to keyrelease() to avoid forward decl issues */
+ 	[MappingNotify] = mappingnotify, /* keyboard mapping change */
+ 	[MapRequest] = maprequest, /* a new window needs to be mapped */
+ 	[MotionNotify] = motionnotify, /* mouse movement */
+ 	[PropertyNotify] = propertynotify, /* window property changes */
+ 	[UnmapNotify] = unmapnotify /* window needs to be unmapped */
+ };
+@@
+ void
+ grabbuttons(Client *c, int focused)
+ {
+ 	updatenumlockmask();
+ 	{
+ 		unsigned int i, j;
+ 		unsigned int modifiers[] = { 0, LockMask, numlockmask, numlockmask|LockMask };
+ 		XUngrabButton(dpy, AnyButton, AnyModifier, c->win);
+ 		if (!focused)
+ 			XGrabButton(dpy, AnyButton, AnyModifier, c->win, False,
+ 				BUTTONMASK, GrabModeSync, GrabModeSync, None, None);
+-		for (i = 0; i < LENGTH(buttons); i++)
+-			if (buttons[i].click == ClkClientWin)
+-				for (j = 0; j < LENGTH(modifiers); j++)
+-					XGrabButton(dpy, buttons[i].button,
+-						buttons[i].mask | modifiers[j],
+-						c->win, False, BUTTONMASK,
+-						GrabModeAsync, GrabModeSync, None, None);
++		for (i = 0; i < LENGTH(buttons); i++)
++			if (buttons[i].click == ClkClientWin) {
++				/* only grab this button if its button-mode matches current buttonmode */
++				if (buttons[i].bmode != BUTTONMODE_ANY && buttons[i].bmode != buttonmode)
++					continue;
++				for (j = 0; j < LENGTH(modifiers); j++)
++					XGrabButton(dpy, buttons[i].button,
++						buttons[i].mask | modifiers[j],
++						c->win, False, BUTTONMASK,
++						GrabModeAsync, GrabModeSync, None, None);
++			}
+ 	}
+ }
+@@
+ void
+ grabkeys(void)
+ {
+ 	updatenumlockmask();
+ 	{
+ 		unsigned int i, j, k;
+ 		unsigned int modifiers[] = { 0, LockMask, numlockmask, numlockmask|LockMask };
+ 		int start, end, skip;
+ 		KeySym *syms;
+ 
+ 		XUngrabKey(dpy, AnyKey, AnyModifier, root);
+ 		XDisplayKeycodes(dpy, &start, &end);
+ 		syms = XGetKeyboardMapping(dpy, start, end - start + 1, &skip);
+ 		if (!syms)
+ 			return;
+-		for (k = start; k <= end; k++)
+-			for (i = 0; i < LENGTH(keys); i++)
+-				/* skip modifier codes, we do that ourselves */
+-				if (keys[i].keysym == syms[(k - start) * skip])
+-					for (j = 0; j < LENGTH(modifiers); j++)
+-						XGrabKey(dpy, k,
+-							 keys[i].mod | modifiers[j],
+-							 root, True,
+-							 GrabModeAsync, GrabModeAsync);
++		for (k = start; k <= end; k++) {
++			for (i = 0; i < LENGTH(keys); i++) {
++				/* only grab keys that apply to the current keymode */
++				if (keys[i].mode != KEYMODE_ANY && keys[i].mode != keymode)
++					continue;
++				/* skip modifier codes, we do that ourselves */
++				if (keys[i].keysym == syms[(k - start) * skip]) {
++					for (j = 0; j < LENGTH(modifiers); j++)
++						XGrabKey(dpy, k,
++							 keys[i].mod | modifiers[j],
++							 root, True,
++							 GrabModeAsync, GrabModeAsync);
++				}
++			}
++		}
++		/* Also consider grabbing keychords' current step keys: if keychords[] exists in config.h */
++		for (k = start; k <= end; k++) {
++			for (i = 0; i < (int)(sizeof(keychords) / sizeof(Keychord *)); i++) {
++				Keychord *kc = keychords[i];
++				if (!kc)
++					continue;
++				/* only consider chords that match mode */
++				if (kc->mode != KEYMODE_ANY && kc->mode != keymode)
++					continue;
++				/* skip if current step not valid */
++				if (currentkey >= kc->n)
++					continue;
++				if (kc->keys[currentkey].keysym == syms[(k - start) * skip]) {
++					for (j = 0; j < LENGTH(modifiers); j++) {
++						XGrabKey(dpy, k,
++							 kc->keys[currentkey].mod | modifiers[j],
++							 root, True,
++							 GrabModeAsync, GrabModeAsync);
++					}
++				}
++			}
++		}
+ 		XFree(syms);
+ 	}
+ }
+@@
+-void
+-keypress(XEvent *e) /* receives a keyboard press XEvent from X11 */
+-{
+-	unsigned int i; /* will loop over keybinds */
+-	KeySym keysym; /* symbolic name, like XK_b or XK_space */
+-	XKeyEvent *ev; /* pointer to the key event data */
+-
+-	ev = &e->xkey; /* grabs the XKeyEvent from XEvent */
+-	keysym = XKeycodeToKeysym(dpy, (KeyCode)ev->keycode, 0); /* translates raw keycode into symbolic keysym */
+-	for (i = 0; i < LENGTH(keys); i++) /* loop thru all binds in keys[] (config.h) */
+-		if ((keys[i].mode == KEYMODE_ANY || keys[i].mode == keymode)
+-		&& keysym == keys[i].keysym
+-		&& CLEANMASK(keys[i].mod) == CLEANMASK(ev->state)
+-		&& keys[i].func) /* check that a pointer function exists */
+-			keys[i].func(&(keys[i].arg)); /* if the pressed key matches a bind, call the function associated w/ that bind */
+-}
++void
++keypress(XEvent *e) /* receives a keyboard press XEvent from X11 */
++{
++	unsigned int i; /* will loop over keybinds */
++	KeySym keysym; /* symbolic name, like XK_b or XK_space */
++	XKeyEvent *ev; /* pointer to the key event data */
++
++	ev = &e->xkey; /* grabs the XKeyEvent from XEvent */
++	keysym = XKeycodeToKeysym(dpy, (KeyCode)ev->keycode, 0); /* translates raw keycode into symbolic keysym */
++
++	/* register press time for hold detection (unregister on KeyRelease) */
++	register_keypress(keysym, ev->time);
++
++	/* First: check whether this key press could be the start/continuation of a chord.
++	 * If ANY chord candidate exists for currentkey that matches this keysym and the current mode,
++	 * enter the chord state machine. Otherwise, fall back to the normal single-key dispatch.
++	 */
++	{
++		/* build initial candidate list from keychords[] (defined in config.h) */
++		size_t kc_total = sizeof(keychords) / sizeof(Keychord *);
++		Keychord *cand1[kc_total ? kc_total : 1];
++		Keychord *cand2[kc_total ? kc_total : 1];
++		size_t cand = 0;
++
++		for (size_t idx = 0; idx < kc_total; idx++) {
++			Keychord *kc = keychords[idx];
++			if (!kc)
++				continue;
++			/* chord must be active for the current keymode */
++			if (kc->mode != KEYMODE_ANY && kc->mode != keymode)
++				continue;
++			/* ensure chord has at least one key and first step exists */
++			if (kc->n == 0)
++				continue;
++			/* match first step (currentkey could be 0 at start) */
++			if (kc->keys[0].keysym == keysym && CLEANMASK(kc->keys[0].mod) == CLEANMASK(ev->state)) {
++				cand1[cand++] = kc;
++			}
++		}
++
++		if (cand > 0) {
++			/* A chord is starting — enter chord loop */
++			Keychord **rpointer = cand1;
++			Keychord **wpointer = cand2;
++			size_t r = cand;
++			XEvent event = *e;
++			unsigned int ran = 0;
++
++			/* We are now in chord progress; ensure Escape is grabbed for cancel */
++			grabkeys();
++
++			/* currentkey is the index of the chord step we're processing (0-based) */
++			currentkey = 0;
++
++			while (r > 0) {
++				/* we're already holding the KeyPress for the current step in 'event' */
++				ev = &event.xkey;
++				keysym = XKeycodeToKeysym(dpy, (KeyCode)ev->keycode, 0);
++
++				size_t w = 0;
++				ran = 0;
++				for (size_t iidx = 0; iidx < r; iidx++) {
++					Keychord *kc = rpointer[iidx];
++					/* ensure this chord has currentkey */
++					if (currentkey >= kc->n)
++						continue;
++					if (keysym == kc->keys[currentkey].keysym
++					    && CLEANMASK(kc->keys[currentkey].mod) == CLEANMASK(ev->state)
++					    && kc->func) {
++						if (kc->n == currentkey + 1) {
++							/* final key in chord: execute */
++							kc->func(&(kc->arg));
++							ran = 1;
++						} else {
++							/* candidate continues */
++							wpointer[w++] = kc;
++						}
++					}
++				}
++
++				currentkey++;
++				if (w == 0 || ran)
++					break;
++
++				/* prepare for the next step: swap candidate buffers and rebuild grabs */
++				Keychord **tmp = rpointer;
++				rpointer = wpointer;
++				wpointer = tmp;
++				r = w;
++				/* regrab keys for next step and ensure Escape is grabbed to cancel */
++				grabkeys();
++
++				/* wait for next KeyPress with timeout, dispatching other events normally */
++				{
++					int fd = ConnectionNumber(dpy);
++					fd_set rfds;
++					struct timeval tv;
++					FD_ZERO(&rfds);
++					FD_SET(fd, &rfds);
++					tv.tv_sec = chordtimeoutms / 1000;
++					tv.tv_usec = (chordtimeoutms % 1000) * 1000;
++					int sel = select(fd + 1, &rfds, NULL, NULL, &tv);
++					if (sel <= 0) {
++						/* timeout or error: abort chord */
++						break;
++					}
++					/* Read next event(s) until we get KeyPress (handle other events) */
++					for (;;) {
++						XNextEvent(dpy, &event);
++						if (event.type == KeyPress)
++							break;
++						if (event.type < LASTEvent && handler[event.type])
++							handler[event.type](&event);
++					}
++				}
++				/* loop continues with new KeyPress stored in event */
++			}
++
++			/* reset chord state and restore base grabs */
++			currentkey = 0;
++			grabkeys();
++			return; /* chord handling consumed this key event */
++		}
++	}
++
++	/* No chord candidate — fallback to single-key dispatch */
++	for (i = 0; i < LENGTH(keys); i++) /* loop thru all binds in keys[] (config.h) */
++		if ((keys[i].mode == KEYMODE_ANY || keys[i].mode == keymode)
++		&& keysym == keys[i].keysym
++		&& CLEANMASK(keys[i].mod) == CLEANMASK(ev->state)
++		&& keys[i].func) /* check that a pointer function exists */
++			keys[i].func(&(keys[i].arg)); /* normal single-key behavior */
++}
+@@
++/* ---------- keychord support ---------- */
++/* Keychord struct: a sequence of up to 5 Key entries, a function and an Arg.
++ * Each Keychord has its own mode (KEYMODE_ANY or a specific keymode).
++ *
++ * You should define `static Keychord *keychords[] = { ... };` in your config.h
++ * to populate chords used by your build (as described earlier).
++ */
++typedef struct {
++    unsigned int n;
++    const Key keys[5];
++    void (*func)(const Arg *);
++    const Arg arg;
++    int mode; /* KEYMODE_ANY or specific keymode */
++} Keychord;
++
++/* keychords[] should be defined in config.h as a literal array of pointers,
++ * so sizeof(keychords)/sizeof(Keychord*) will work.
++ */
++
++/* chord timeout in milliseconds */
++static int chordtimeoutms = 800;
++
+@@
++/* ---------- hold/press/release support ---------- */
++static KeySym heldkeys[32];
++static Time   heldtimes[32];
++static int    heldcount = 0;
++
++#define HOLD_DELAY 350 /* ms */
++
++static int
++iskeyheld(KeySym keysym)
++{
++    for (int i = 0; i < heldcount; i++)
++        if (heldkeys[i] == keysym)
++            return i;
++    return -1;
++}
++
++static void
++register_keypress(KeySym keysym, Time time)
++{
++    if (iskeyheld(keysym) >= 0)
++        return;
++    if (heldcount >= 32)
++        return;
++    heldkeys[heldcount] = keysym;
++    heldtimes[heldcount] = time;
++    heldcount++;
++}
++
++static Time
++unregister_keyrelease(KeySym keysym)
++{
++    int i = iskeyheld(keysym);
++    Time t = 0;
++    if (i < 0)
++        return 0;
++
++    t = heldtimes[i];
++    for (; i < heldcount - 1; i++) {
++        heldkeys[i] = heldkeys[i + 1];
++        heldtimes[i] = heldtimes[i + 1];
++    }
++    heldcount--;
++    return t;
++}
++
++static int
++key_held_long_enough(KeySym keysym, Time now)
++{
++    int i = iskeyheld(keysym);
++    if (i < 0)
++        return 0;
++    return (now - heldtimes[i]) >= HOLD_DELAY;
++}
++
++void
++keyrelease(XEvent *e)
++{
++    unsigned int i;
++    KeySym keysym;
++    XKeyEvent *ev;
++    Time press_time;
++
++    ev = &e->xkey;
++    keysym = XKeycodeToKeysym(dpy, (KeyCode)ev->keycode, 0);
++    press_time = unregister_keyrelease(keysym);
++
++    for (i = 0; i < LENGTH(keys); i++) {
++        if (keys[i].mode != KEYMODE_ANY && keys[i].mode != keymode)
++            continue;
++        if (keys[i].keysym != keysym)
++            continue;
++        if (CLEANMASK(keys[i].mod) != CLEANMASK(ev->state))
++            continue;
++
++        if (keys[i].trigger == KeyReleaseOnly && keys[i].func)
++            keys[i].func(&(keys[i].arg));
++
++        if (keys[i].trigger == KeyHold &&
++            (ev->time - press_time) >= HOLD_DELAY &&
++            keys[i].func)
++            keys[i].func(&(keys[i].arg));
++    }
++}
++
++/* ensure keyrelease is set into the handler table (will be valid by the time run() executes) */
++/* if your build system or compiler complains about handler[] being const, move this assignment into setup(). */
++/* We'll assign at runtime in setup() to be safe: */
+@@
+ void
+ setup(void)
+ {
+@@
+ 	grabkeys(); /* register the keybinds in config.h */
++	/* ensure keyrelease is in the handler table now that keyrelease() exists */
++	handler[KeyRelease] = keyrelease;
+ 	focus(NULL); /* focus needs to start cleanly */
+ }

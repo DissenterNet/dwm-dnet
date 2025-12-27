@@ -1,3 +1,7 @@
+#ifndef VANITYGAPS_C
+#define VANITYGAPS_C
+
+
 /* Key binding functions */
 static void defaultgaps(const Arg *arg);
 static void incrgaps(const Arg *arg);
@@ -261,7 +265,7 @@ fibonacci(Monitor *m, int s)
 				}
 				ny = m->wy + oh;
 			}
-			else if (i == 1)
+incrgaps(const Arg *arg)
 				nw = m->ww - nw - iv - 2*ov;
 			i++;
 		}
@@ -323,3 +327,5 @@ tile(Monitor *m)
 			sy += HEIGHT(c) + ih;
 		}
 }
+
+#endif /* VANITYGAPS_C */
