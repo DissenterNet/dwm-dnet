@@ -19,6 +19,7 @@ dwm-sticky-6.5.diff                             ----- make a window follow from 
 dwm-swallow-6.3.diff                            ----- terminal swallows launched programs
 dwm-vanitygaps-6.2.diff                         ----- gaps are functional: your eye is less inclined to drift while working.
 dwm-xrdb-6.4.diff                               ----- xresource database colors
+dwm-quitprompt-20220718-6613d9f.diff			----- prompts for confirmation on quit
 */
 
 /* appearance */
@@ -161,7 +162,7 @@ static const Key keys[] = {
 
 
 	{ MODKEY|ControlMask|ShiftMask, XK_q,		quit,			{1} },  /* refresh dwm (restartsig) */
-	{ MODKEY|ShiftMask,		XK_BackSpace,   quit,			{0} }, /* quit dwm */
+	{ MODKEY|ShiftMask,		XK_BackSpace,   quitprompt,			{0} }, /* quit dwm */
 	{ MODKEY,			XK_q,		killclient,             {0} }, /* quit window */
 	{ MODKEY|ShiftMask,		XK_q,		killclient,             {.ui = 1} },  /* kill all windows besides current */
      /* { MODKEY|ShiftMask|ControlMask, XK_q,   	killclient,             {.ui = 2} }, */

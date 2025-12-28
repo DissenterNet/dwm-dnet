@@ -237,6 +237,7 @@ static void pop(Client *c);
 static void propertynotify(XEvent *e);
 static void pushstack(const Arg *arg);
 static void quit(const Arg *arg);
+static void quitprompt(const Arg *arg);
 static Monitor *recttomon(int x, int y, int w, int h);
 static void resize(Client *c, int x, int y, int w, int h, int interact);
 static void resizeclient(Client *c, int x, int y, int w, int h);
@@ -330,7 +331,7 @@ static void (*handler[LASTEvent]) (XEvent *) = { /* maps X event type to matchin
 	[UnmapNotify] = unmapnotify /* window needs to be unmapped */
 };
 static Atom wmatom[WMLast], netatom[NetLast];
-static int restart = 0;
+static int restart = 1;
 static int running = 1;
 static Cur *cursor[CurLast];
 static Clr **scheme;
@@ -1306,6 +1307,31 @@ killclient(const Arg *arg)
             continue;
         killthis(c);
     }
+}
+
+void
+quitprompt(const Arg *arg)
+{
+	FILE *pp = popen("echo -e \"no\nrestart\nyes\" | dmenu -i -sb red -p \"Quit DWM?\"", "r");
+	if(pp != NULL) {
+		char buf[1024];
+		if (fgets(buf, sizeof(buf), pp) == NULL) {
+			fprintf(stderr, "Quitprompt: Error reading pipe!\n");
+			return;
+		}
+		if (strcmp(buf, "yes\n") == 0) {
+			pclose(pp);
+			restart = 0;
+			quit(NULL);
+		} else if (strcmp(buf, "restart\n") == 0) {
+			pclose(pp);
+			restart = 1;
+			quit(NULL);
+		} else if (strcmp(buf, "no\n") == 0) {
+			pclose(pp);
+			return;
+		}
+	}
 }
 
 void
@@ -2919,5 +2945,8 @@ main(int argc, char *argv[])
 	if(restart) execvp(argv[0], argv);
 	cleanup();
 	XCloseDisplay(dpy);
+	if (restart == 1) {
+		execlp("dwm", "dwm", NULL);
+	}
 	return EXIT_SUCCESS;
 }
