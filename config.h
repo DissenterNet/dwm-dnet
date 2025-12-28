@@ -38,8 +38,8 @@ static const int showstatus         = 1;        /* 0 means no status bar */
 static const int showfloating       = 0;        /* 0 means no floating indicator */
 static int topbar                   = 1;        /* 0 means bottom bar */
 
-static char dmenufont[]             = "terminal:bold:size=14";
-static const char *fonts[]          = { "terminal:bold:size=14:antialias=true:autohint=true" };
+static char dmenufont[]             = "JetBrainsMono Nerd Font:bold:size=14";
+static const char *fonts[]          = { "JetBrainsMono Nerd Font:bold:size=14:antialias=true:autohint=true" };
 
 /* default colors used if xrdb is not loaded */
 static char normbgcolor[]           = "#2e3440";
@@ -281,6 +281,22 @@ static const Button buttons[] = {
 #endif
 
 	{ ClkStatusText,                ShiftMask,	Button3,	spawn,          SHCMD("st -e nvim ~/.local/src/dwmblocks/blocks.h") },
+	
+	/* VS Code Launcher (Signal 1) */
+	{ ClkStatusText,                0,		Button1,	spawn,          SHCMD("vscode-launcher") },
+	{ ClkStatusText,                0,		Button3,	spawn,          SHCMD("BUTTON=3 vscode-launcher") },
+	{ ClkStatusText,                0,		Button2,	spawn,          SHCMD("BUTTON=2 vscode-launcher") },
+	
+	/* Network Control (Signal 4) */
+	{ ClkStatusText,                0,		Button1,	spawn,          SHCMD("BUTTON=1 network-control") },
+	{ ClkStatusText,                0,		Button3,	spawn,          SHCMD("BUTTON=3 network-control") },
+	{ ClkStatusText,                0,		Button2,	spawn,          SHCMD("BUTTON=2 network-control") },
+	
+	/* Volume Control (Signal 5) */
+	{ ClkStatusText,                0,		Button1,	spawn,          SHCMD("BUTTON=1 volume-control") },
+	{ ClkStatusText,                0,		Button3,	spawn,          SHCMD("BUTTON=3 volume-control") },
+	{ ClkStatusText,                0,		Button4,	spawn,          SHCMD("BUTTON=4 volume-control") },
+	{ ClkStatusText,                0,		Button5,	spawn,          SHCMD("BUTTON=5 volume-control") },
 	{ ClkClientWin,			MODKEY,		Button1,	movemouse,      {0} }, /* left click */
 	{ ClkClientWin,			MODKEY,		Button2,	defaultgaps,    {0} }, /* middle click */
 	{ ClkClientWin,			MODKEY,		Button3,	resizemouse,    {0} }, /* right click */
