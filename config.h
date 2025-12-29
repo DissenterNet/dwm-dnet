@@ -22,14 +22,15 @@ dwm-ifroot-6.6.diff								----- map keys to have one behavior when a window is 
 */
 
 /* appearance */
+#include <X11/X.h>
 static unsigned int borderpx        = 1;        /* border pixel of windows */
 static unsigned int snap            = 32;       /* snap pixel */
-static const unsigned int gappih    = 20;       /* horiz inner gap between windows */
-static const unsigned int gappiv    = 20;       /* vert inner gap between windows */
-static const unsigned int gappoh    = 20;       /* horiz outer gap between windows and screen edge */
-static const unsigned int gappov    = 30;       /* vert outer gap between windows and screen edge */
-static int smartgaps                = 0;        /* 1 means no outer gap when there is only one window */
-static const int swallowfloating    = 0;        /* 1 means swallow floating windows by default */
+static const unsigned int gappih    = 10;       /* horiz inner gap between windows */
+static const unsigned int gappiv    = 10;       /* vert inner gap between windows */
+static const unsigned int gappoh    = 10;       /* horiz outer gap between windows and screen edge */
+static const unsigned int gappov    = 15;       /* vert outer gap between windows and screen edge */
+static int smartgaps                = 1;        /* 1 means no outer gap when there is only one window */
+static const int swallowfloating    = 1;        /* 1 means swallow floating windows by default */
 static int showbar                  = 1;        /* 0 means no bar */
 static const int showtitle          = 1;        /* 0 means no title */
 static const int showtags           = 1;        /* 0 means no tags */
@@ -61,6 +62,14 @@ static char *colors[][3] = {
 		[SchemeInfoNorm]  = { normfgcolor, normbgcolor,  normbgcolor  }, /* info M unselected */
 };
 
+/* Audio */
+static const char *mute_volume[] = { "amixer", "-D pulse", "set", "Master", "toggle", NULL };
+static const char *lower_volume[] = { "amixer", "-D pulse", "set", "Master", "5%-", NULL };
+static const char *raise_volume[] = { "amixer", "-D pulse", "set", "Master", "5%+", NULL };
+
+/* Display brightness */
+static const char *lower_brightness[] = { "brightnessctl", "set", "5%-", NULL };
+static const char *raise_brightness[] = { "brightnessctl", "set", "5%+", NULL };
 
 /* tagging */
 static const char *tags[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9" };
@@ -105,14 +114,15 @@ static const Layout layouts[] = { /* alt glyphs: 󱡗 󱏋 */
 	{ MODKEY|ControlMask,           KEY,      toggleview,     {.ui = 1 << TAG} }, \
 	{ MODKEY|ShiftMask,             KEY,      tag,            {.ui = 1 << TAG} }, \
 	{ MODKEY|ControlMask|ShiftMask, KEY,      toggletag,      {.ui = 1 << TAG} },
+
 #define STACKKEYS(MOD,ACTION) \
 	{ MOD, XK_j,     ACTION##stack, {.i = INC(+1) } }, \
 	{ MOD, XK_k,     ACTION##stack, {.i = INC(-1) } }, \
-	/*{ MOD, XK_grave, ACTION##stack, {.i = PREVSEL } }, \
-	{ MOD, XK_q,     ACTION##stack, {.i = 0 } }, \
+	{ MOD, XK_grave, ACTION##stack, {.i = PREVSEL } },\
+	{ MOD, XK_w,     ACTION##stack, {.i = 0 } }, \
 	{ MOD, XK_a,     ACTION##stack, {.i = 1 } }, \
 	{ MOD, XK_z,     ACTION##stack, {.i = 2 } }, \
-	{ MOD, XK_x,     ACTION##stack, {.i = -1 } }, */
+	{ MOD, XK_x,     ACTION##stack, {.i = -1 } },
 
 /* helper for spawning shell commands in the pre dwm-5.0 fashion */
 #define SHCMD(cmd) { .v = (const char*[]){ "/bin/sh", "-c", cmd, NULL } }
@@ -159,27 +169,53 @@ static const Key keys[] = {
 	{ MODKEY,                       	XK_0,      				view,           			{.ui = ~0 } },
 	{ MODKEY|ShiftMask,             	XK_0,      				tag,            			{.ui = ~0 } },
 
+/* AUDIO */
+	{ 0,								XF86XK_AudioMute,			spawn,						{.v = mute_volume} },
+	{ 0,								XF86XK_AudioLowerVolume,	spawn,						{.v = lower_volume} },
+	{ 0,								XF86XK_AudioRaiseVolume,	spawn,						{.v = raise_volume} },
 
-	{ MODKEY|ControlMask|ShiftMask, 	XK_q,					quit,						{1} },  				/* refresh dwm (restartsig) */
-	{ MODKEY|ShiftMask,					XK_BackSpace,   		quitprompt,					{0} }, 					/* quit dwm */
-	{ MODKEY,							XK_q,					killclient,             	{0} }, 					/* quit window */
-	{ MODKEY|ShiftMask,					XK_q,					killclient,             	{.ui = 1} },  			/* kill all windows besides current */
-	{ MODKEY|ControlMask,				XK_backslash,   		xrdb,						{.v = NULL } }, 		/* refresh xrdb; run this when setting new colors */
+/* DISPLAY */
+	{ 0,								XF86XK_MonBrightnessDown,	spawn,						{.v = lower_brightness} },
+	{ 0,								XF86XK_MonBrightnessUp,		spawn,						{.v = raise_brightness} },
 
 
-	{ MODKEY,                       	XK_t,      				setlayout,                   {.v = &layouts[0]} },
-	{ MODKEY,							XK_f,	   				togglefullscreen,            {0} }, 				/* focus fullscreen patch */
-	{ MODKEY|ShiftMask,					XK_m,      				setlayout,                   {.v = &layouts[2]} }, 	/* monacle */
-	{ MODKEY,							XK_s,      				setlayout,                   {.v = &layouts[3]} }, 	/* spiral */
-	{ MODKEY|ShiftMask,					XK_t,      				setlayout,                   {.v = &layouts[4]} }, 	/* dwindle */
-	{ MODKEY|ControlMask,				XK_space,  				setlayout,                   {0} },
-	{ MODKEY|ShiftMask,					XK_space,  				togglefloating,              {0} },
-	{ MODKEY,							XK_space,  				zoom,                        {0} },
-	{ MODKEY|ControlMask,           	XK_space,  				focusmaster,                 {0} },
+/* refresh dwm (restartsig) */
+	{ MODKEY|ShiftMask, 				XK_r,					quit,						{1} },
+/* refresh xrdb; run this when setting new colors */
+	{ MODKEY|ControlMask,				XK_r,   				xrdb,						{.v = NULL } },
+/* quit dwm */
+	{ MODKEY|ShiftMask,					XK_BackSpace,   		quitprompt,					{0} },
+/* kill all windows besides current */
+	{ MODKEY|ShiftMask,					XK_q,					killclient,             	{.ui = 1} },
+
+/* WINDOW MANAGEMENT */
+
+	/* focus fullscreen patch */
+	{ MODKEY,					XK_f,	   				togglefullscreen,            {0} },
+	/* toggle sticky window */
 	{ MODKEY|ShiftMask,             	XK_s,      				togglesticky,                {0} },
 
+/* LAYOUTS */
+
+	/* tile */	
+	{ MODKEY|ControlMask,               XK_t,      				setlayout,                   {.v = &layouts[0]} },
+	/* floating */	
+	{ MODKEY|ControlMask,				XK_f,	   				setlayout,            		 {.v = &layouts[1]} },
+	{ MODKEY|ShiftMask,					XK_space,  				togglefloating,              {0} },
+	/* monacle */
+	{ MODKEY|ControlMask,				XK_m,      				setlayout,                   {.v = &layouts[2]} },
+	/* spiral */
+	{ MODKEY|ControlMask,				XK_s,      				setlayout,                   {.v = &layouts[3]} },
+	/* dwindle */
+	{ MODKEY|ControlMask,				XK_d,      				setlayout,                   {.v = &layouts[4]} },
+
+	{ MODKEY|ControlMask,				XK_space,  				setlayout,                   {0} },
+	{ MODKEY,							XK_space,  				zoom,                        {0} },
+	{ MODKEY|ControlMask,           	XK_space,  				focusmaster,                 {0} },
+
+
 /* ifroot mappings			first action is on bg second on a window */
-	{ MODKEY|ShiftMask,         		XK_c,      				ifroot,         			{.v = &(TwoFuncPtr){quitprompt, killclient, {0}, {0} } } },
+	{ MODKEY,         					XK_q,      				ifroot,         			{.v = &(TwoFuncPtr){quitprompt, killclient, {0}, {0} } } },
 
 
 /* multi-monitor control */
@@ -189,8 +225,8 @@ static const Key keys[] = {
 	{ MODKEY|ShiftMask,					XK_bracketleft,         tagmon,         			{.i = +1 } },
 
 /* gaps control */
-	{ MODKEY,	               			XK_minus,  				incrgaps,       			{.i = -3 } }, /* all */
-	{ MODKEY,		      				XK_equal,  				incrgaps,       			{.i = +3 } },
+	{ MODKEY,	               			XK_minus,  				incrgaps,       			{.i = -1 } }, /* all */
+	{ MODKEY,		      				XK_equal,  				incrgaps,       			{.i = +1 } },
 	{ MODKEY|Mod1Mask,					XK_i,      				incrigaps,      			{.i = +1 } }, /* inner */
 	{ MODKEY|Mod1Mask|ShiftMask,    	XK_i,       			incrigaps,      			{.i = -1 } },
 	{ MODKEY|Mod1Mask,              	XK_o,      				incrogaps,      			{.i = +1 } }, /* outer */
@@ -229,8 +265,7 @@ static const Key keys[] = {
 
 
 /* application bindings */
-	{ MODKEY,							XK_w,          	spawn,      {.v = (const char*[]){ BROWSER, NULL } } },
-	{ MODKEY,							XK_f,          	spawn,      {.v = (const char*[]){ "st", "-e", "fff", NULL } } },
+	{ MODKEY|ControlMask|ShiftMask,					XK_w,          	spawn,      {.v = (const char*[]){ BROWSER, NULL } } },
 	{ MODKEY,							XK_n,          	spawn,      {.v = (const char*[]){ "st", "-e", "nvim", NULL } } },
 	{ MODKEY|ShiftMask,     			XK_h,          	spawn,      {.v = (const char*[]){ "st", "-e", "htop", NULL } } },
 
@@ -251,23 +286,7 @@ static const Button buttons[] = {
 	{ ClkStatusText,		ShiftMask,		Button1,	sigstatusbar,	{.i = 6} },
 #endif
 
-	{ ClkStatusText,        ShiftMask,		Button3,	spawn,          SHCMD("st -e nvim ~/.local/src/dwmblocks/blocks.h") },
-	
-	/* VS Code Launcher (Signal 1) */
-	{ ClkStatusText,         0,				Button1,	spawn,          SHCMD("vscode-launcher") },
-	{ ClkStatusText,         0,				Button3,	spawn,          SHCMD("BUTTON=3 vscode-launcher") },
-	{ ClkStatusText,         0,				Button2,	spawn,          SHCMD("BUTTON=2 vscode-launcher") },
-	
-	/* Network Control (Signal 4) */
-	{ ClkStatusText,         0,				Button1,	spawn,          SHCMD("BUTTON=1 network-control") },
-	{ ClkStatusText,         0,				Button3,	spawn,          SHCMD("BUTTON=3 network-control") },
-	{ ClkStatusText,         0,				Button2,	spawn,          SHCMD("BUTTON=2 network-control") },
-	
-	/* Volume Control (Signal 5) */
-	{ ClkStatusText,        0,				Button1,	spawn,          SHCMD("BUTTON=1 volume-control") },
-	{ ClkStatusText,        0,				Button3,	spawn,          SHCMD("BUTTON=3 volume-control") },
-	{ ClkStatusText,        0,				Button4,	spawn,          SHCMD("BUTTON=4 volume-control") },
-	{ ClkStatusText,        0,				Button5,	spawn,          SHCMD("BUTTON=5 volume-control") },
+	{ ClkStatusText,        ShiftMask,		Button3,	spawn,          SHCMD("st -e nvim ~/src/suckless/dwmblocks-dnet/blocks.h") },
 	{ ClkClientWin,			MODKEY,			Button1,	movemouse,      {0} }, /* left click */
 	{ ClkClientWin,			MODKEY,			Button2,	defaultgaps,    {0} }, /* middle click */
 	{ ClkClientWin,			MODKEY,			Button3,	resizemouse,    {0} }, /* right click */

@@ -20,6 +20,7 @@
  *
  * To understand everything else, start reading main().
  */
+#include <X11/XF86keysym.h>
 #include <errno.h>
 #include <locale.h>
 #include <signal.h>
@@ -83,7 +84,6 @@
                                   } \
                                 }
 #define TRUNC(X,A,B)            (MAX((A), MIN((X), (B))))
-
 
 /* enums */
 enum { CurNormal, CurResize, CurMove, CurLast }; /* cursor */
