@@ -183,6 +183,12 @@ typedef struct {
 	int monitor;
 } Rule;
 
+typedef struct {
+	void (*func1)(const Arg *arg);
+	void (*func2)(const Arg *arg);
+	const Arg arg1;
+	const Arg arg2;
+} TwoFuncPtr;
 
 /* function declarations */
 static void applyrules(Client *c);
@@ -221,6 +227,7 @@ static void sigstatusbar(const Arg *arg);
 static int gettextprop(Window w, Atom atom, char *text, unsigned int size);
 static void grabbuttons(Client *c, int focused);
 static void grabkeys(void);
+static void ifroot(const Arg *arg);
 static void incnmaster(const Arg *arg);
 static void keypress(XEvent *e);
 static void killthis(Client *c);
@@ -1240,6 +1247,18 @@ grabkeys(void)
 		XFree(syms);
 	}
 }
+
+void
+ifroot(const Arg *arg)
+{
+	TwoFuncPtr *funcs = (TwoFuncPtr*)arg->v;
+	if (!selmon->sel) { /*no client -> root window*/
+		funcs->func1(&(funcs->arg1));
+		return;
+	} /*client window*/
+	funcs->func2(&(funcs->arg2));
+}
+
 
 void
 incnmaster(const Arg *arg)
