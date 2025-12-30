@@ -22,6 +22,9 @@ dwm-ifroot-6.6.diff								----- map keys to have one behavior when a window is 
 dwm-alwayscenter-20200625-f04cac6.diff     		----- center floating windows.
 dwm-centeredwindowname-20200723-f035e1e.diff	----- center window name.
 dwm-savefloats-20181212-b69c870.diff			----- saves and restores from saved floating windows possitions.
+dwm-floatrules-20210801-138b405.diff			----- set where floating windows spawn.
+dwm-namedscratchpads-6.5.diff					----- added named scratchpads.
+dwm-scratchtagwins-6.5.diff						----- added named scratchpads with tags.
 */
 
 /* appearance */
@@ -78,16 +81,27 @@ static const char *raise_brightness[] = { "brightnessctl", "set", "5%+", NULL };
 static const char *tags[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9" };
 // static const char *tags[] = { "󰎤", "󰎧", "󰎪", "󰎭", "󰎱", "󰎳", "󰎶", "󰎹", "󰎼" };
 
+#include "scratchtagwins.c"
 
 static const Rule rules[] = {
 	/* xprop(1):
 	 *	WM_CLASS(STRING) = instance, class
 	 *	WM_NAME(STRING) = title
 	 */
-	/* class     instance  title           tags mask  isfloating  isterminal  noswallow  monitor */
-	{ "St",      NULL,     NULL,           0,         0,          1,           0,        -1 },
-	{ "fzfmenu", NULL,     "fzf", 	       0,         1,          1,           1,        -1 }, /* xev */
-	{ NULL,      NULL,     "Event Tester", 0,         0,          0,           1,        -1 }, /* xev */
+	/* class     instance  title           tags mask  isfloating  isterminal  noswallow  monitor	float x,y,w,h		floatborderpx */
+	{ "St",      NULL,     NULL,           0,         0,          1,           0,        -1, 		50,50,500,500,		5 },
+	{ "fzfmenu", NULL,     "fzf", 	       0,         1,          1,           1,        -1, 		50,50,500,500,		5 }, /* xev */
+	{ NULL,      NULL,     "Event Tester", 0,         0,          0,           1,        -1, 		50,50,500,500,		5 }, /* xev */
+	{ NULL,      NULL,     "scratchpad",   0,         1,          -1,          1,		's', 		50,50,500,500,		5 },
+	SCRATCHTAGWIN_RULE (scratchtagwin1, 1),
+	SCRATCHTAGWIN_RULE (scratchtagwin2, 2),
+	SCRATCHTAGWIN_RULE (scratchtagwin3, 3),
+	SCRATCHTAGWIN_RULE (scratchtagwin4, 4),
+	SCRATCHTAGWIN_RULE (scratchtagwin5, 5),
+	SCRATCHTAGWIN_RULE (scratchtagwin6, 6),
+	SCRATCHTAGWIN_RULE (scratchtagwin7, 7),
+	SCRATCHTAGWIN_RULE (scratchtagwin8, 8),
+	SCRATCHTAGWIN_RULE (scratchtagwin9, 9),
 };
 
 #include "vanitygaps.c"
@@ -141,6 +155,18 @@ static char dmenumon[2] = "0"; /* component of dmenucmd, manipulated in spawn() 
 static const char *dmenucmd[] = { "dmenu_run", "-m", dmenumon, "-fn", dmenufont, "-nb", normbgcolor, "-nf", normfgcolor, "-sb", selbordercolor, "-sf", selfgcolor, NULL };
 static const char *termcmd[]  = { "st", NULL };
 
+SCRATCHTAGWIN (scratchtagwin1, 1);
+SCRATCHTAGWIN (scratchtagwin2, 2);
+SCRATCHTAGWIN (scratchtagwin3, 3);
+SCRATCHTAGWIN (scratchtagwin4, 4);
+SCRATCHTAGWIN (scratchtagwin5, 5);
+SCRATCHTAGWIN (scratchtagwin6, 6);
+SCRATCHTAGWIN (scratchtagwin7, 7);
+SCRATCHTAGWIN (scratchtagwin8, 8);
+SCRATCHTAGWIN (scratchtagwin9, 9);
+
+/*First arg only serves to match against key in rules*/
+static const char *scratchpadcmd[] = {"s", "st", "-t", "scratchpad", NULL};
 
 static const Arg tagexec[] = { /* spawn application when tag is middle-clicked */
 	{ .v = termcmd }, /* 1 */
@@ -159,6 +185,18 @@ static const Key keys[] = {
 	/* modifier                     	key        				function        			argument */
 	{ MODKEY,                       	XK_d,      				spawn,          			{.v = dmenucmd } },
 	{ MODKEY,                       	XK_Return, 				spawn,          			{.v = termcmd } },
+	{ MODKEY,                       XK_grave,  togglescratch,  {.v = scratchpadcmd } },
+	SCRATCHTAGWIN_KEY (scratchtagwin1, 1)
+	SCRATCHTAGWIN_KEY (scratchtagwin2, 2)
+	SCRATCHTAGWIN_KEY (scratchtagwin3, 3)
+	SCRATCHTAGWIN_KEY (scratchtagwin4, 4)
+	SCRATCHTAGWIN_KEY (scratchtagwin5, 5)
+	SCRATCHTAGWIN_KEY (scratchtagwin6, 6)
+	SCRATCHTAGWIN_KEY (scratchtagwin7, 7)
+	SCRATCHTAGWIN_KEY (scratchtagwin8, 8)
+	SCRATCHTAGWIN_KEY (scratchtagwin9, 9)
+	{ MODKEY|Mod1Mask|ShiftMask,     XK_0,  makescratchtagwin,  {.i = 0} },
+	{ MODKEY|Mod1Mask|ShiftMask,     XK_s,  makescratchtagwin,  {.i = 's'} },
 	{ MODKEY|ShiftMask,             	XK_b,      				togglebar,      			{0} },
 	STACKKEYS(MODKEY,                          					focus)
 	STACKKEYS(MODKEY|ShiftMask,                					push)
