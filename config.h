@@ -19,6 +19,9 @@ dwm-vanitygaps-6.2.diff                         ----- gaps are functional: your 
 dwm-xrdb-6.4.diff                               ----- xresource database colors.
 dwm-quitprompt-20220718-6613d9f.diff			----- prompts for confirmation on quit.
 dwm-ifroot-6.6.diff								----- map keys to have one behavior when a window is in focus and another on bg.
+dwm-alwayscenter-20200625-f04cac6.diff     		----- center floating windows.
+dwm-centeredwindowname-20200723-f035e1e.diff	----- center window name.
+dwm-savefloats-20181212-b69c870.diff			----- saves and restores from saved floating windows possitions.
 */
 
 /* appearance */
