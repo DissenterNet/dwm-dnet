@@ -10,6 +10,17 @@
 
 #define UTF_INVALID 0xFFFD
 
+/**
+ * @brief Decode UTF-8 byte sequence to Unicode code point
+ * @param s_in Input UTF-8 string pointer
+ * @param u Pointer to store decoded Unicode code point
+ * @param err Pointer to store error flag (1 = error, 0 = success)
+ * @return Number of bytes consumed from input string
+ * @note Implements RFC 3629 UTF-8 decoding with validation
+ * @warning Static arrays used - not thread-safe
+ * @bug No input validation for NULL pointers
+ * @bug No bounds checking on input string length
+ */
 static int
 utf8decode(const char *s_in, long *u, int *err)
 {
@@ -46,6 +57,19 @@ utf8decode(const char *s_in, long *u, int *err)
 	return len;
 }
 
+/**
+ * @brief Create drawing context for X11 window
+ * @param dpy X11 display connection
+ * @param screen Screen number
+ * @param root Root window
+ * @param w Width of drawing area
+ * @param h Height of drawing area
+ * @return Pointer to allocated Drw structure
+ * @note Creates pixmap and graphics context for drawing operations
+ * @warning Caller must free with drw_free() when done
+ * @bug No validation of display parameters
+ * @see drw_free() for cleanup
+ */
 Drw *
 drw_create(Display *dpy, int screen, Window root, unsigned int w, unsigned int h)
 {
@@ -63,6 +87,15 @@ drw_create(Display *dpy, int screen, Window root, unsigned int w, unsigned int h
 	return drw;
 }
 
+/**
+ * @brief Resize drawing context to new dimensions
+ * @param drw Drawing context to resize
+ * @param w New width
+ * @param h New height
+ * @note Frees old pixmap and creates new one with updated dimensions
+ * @warning Invalidates any previous drawing content
+ * @bug No validation of new dimensions (zero size allowed)
+ */
 void
 drw_resize(Drw *drw, unsigned int w, unsigned int h)
 {

@@ -365,6 +365,40 @@ static xcb_connection_t *xcon;
 struct NumTags { char limitexceeded[LENGTH(tags) > 31 ? -1 : 1]; };
 
 /* function implementations */
+/**
+ * @brief Apply matching rules to a new client window
+ * @param c Pointer to the client structure to apply rules to
+ * 
+ * This function applies configuration rules to newly created windows based on their
+ * class, instance, and title properties. Rules are defined in config.h and control
+ * initial window properties like tags, floating state, monitor assignment, and
+ * terminal/swallowing behavior.
+ * 
+ * The function iterates through all rules and applies the first matching rule or
+ * multiple matching rules (rules can accumulate effects). Window properties are
+ * extracted using XGetClassHint() and matched against rule criteria using strstr().
+ * 
+ * @note Rules can set: terminal status, floating state, tags, scratchpad key,
+ *       floating border width, geometry, and target monitor
+ * @note If no tags are set after rule application, defaults to current monitor tagset
+ * 
+ * @warning SECURITY ISSUE: No input sanitization on class/instance strings before
+ *          strstr() matching could lead to unexpected matches
+ * @warning BOUNDS CHECKING: No validation that r->floatx/y/w/h values are within
+ *          screen bounds, could place windows outside visible area
+ * @warning MEMORY LEAK: If XGetClassHint fails, ch.res_class/res_name may not be
+ *          properly freed in all error paths
+ * @warning DUPLICATE RULES: No protection against multiple rules applying conflicting
+ *          settings to the same client
+ * @warning INVALID VALUES: No validation of scratchkey character range or validity
+ * 
+ * @bug COMPLEX LOGIC: Nested condition with multiple && operators makes debugging
+ *      and maintenance difficult
+ * @bug MONITOR SEARCH: Linear search through monitor list could be inefficient with
+ *      many monitors
+ * 
+ * @return void
+ */
 void
 applyrules(Client *c)
 {
@@ -416,6 +450,37 @@ applyrules(Client *c)
 	c->tags = c->tags & TAGMASK ? c->tags & TAGMASK : c->mon->tagset[c->mon->seltags];
 }
 
+/**
+ * @brief Apply size hints to client window geometry
+ * @param c Pointer to client structure to apply hints to
+ * @param x Pointer to x coordinate to be modified
+ * @param y Pointer to y coordinate to be modified  
+ * @param w Pointer to width to be modified
+ * @param h Pointer to height to be modified
+ * @param interact Boolean flag indicating if this is an interactive resize
+ * @return int Returns 1 if geometry was changed, 0 otherwise
+ * 
+ * This function enforces ICCCM size hints including minimum/maximum sizes, aspect ratios,
+ * and increment values. It modifies the provided geometry parameters to comply with
+ * the client's size hints while keeping the window as large as possible within
+ * the constraints.
+ * 
+ * The function handles both interactive (user-driven) and programmatic resizes
+ * differently. Interactive resizes allow the window to be partially outside screen
+ * bounds, while programmatic resizes are constrained to the monitor area.
+ * 
+ * @note Only applies size hints if resizehints is enabled, client is floating,
+ *       or current layout has no arrange function
+ * @note Follows ICCCM 4.1.2.3 specification for base size handling
+ * 
+ * @warning COMPLEX LOGIC: Nested condition structure is difficult to maintain
+ *          and debug
+ * @warning PERFORMANCE: Multiple calls to updatesizehints() may be redundant
+ * @warning BOUNDS CHECKING: Interactive mode allows negative coordinates which
+ *          may cause issues with some applications
+ * 
+ * @return 1 if geometry parameters were modified, 0 otherwise
+ */
 int
 applysizehints(Client *c, int *x, int *y, int *w, int *h, int interact)
 {
@@ -484,8 +549,16 @@ applysizehints(Client *c, int *x, int *y, int *w, int *h, int interact)
 	return *x != c->x || *y != c->y || *w != c->w || *h != c->h;
 }
 
+/**
+ * @brief Arrange windows on a specific monitor or all monitors
+ * @param m Pointer to monitor to arrange (NULL arranges all monitors)
+ * @note This function handles window visibility and calls the appropriate layout function
+ * @note It also ensures proper stacking order with focused window on top
+ * @warning The caller must ensure m is either NULL or a valid Monitor pointer
+ * @return void
+ */
 void
-arrange(Monitor *m) /* if a specific monitor *m is given, it arranges that one. if NULL, it loops thru all */
+arrange(Monitor *m)
 {
 	XEvent ev; /* declares a generic X event */
 	if (m)
@@ -493,7 +566,7 @@ arrange(Monitor *m) /* if a specific monitor *m is given, it arranges that one. 
 	else for (m = mons; m; m = m->next)
 		showhide(m->stack);
 	if (m) { /* if *m is a single monitor */
-		arrangemon(m); /* applies the current layout to windows (tile, spiral, etc)*/
+		arrangemon(m); /* applies to current layout to windows (tile, spiral, etc)*/
 		restack(m); /* proper stacking order --> focused window on top */
 	} else { /* else if *m was NULL */
 		for (m = mons; m; m = m->next) /* loop through all monitors */
@@ -503,6 +576,13 @@ arrange(Monitor *m) /* if a specific monitor *m is given, it arranges that one. 
 	}
 }
 
+/**
+ * @brief Apply the current layout to all windows on a specific monitor
+ * @param m Pointer to the Monitor structure to arrange windows on
+ * @note This function updates the monitor's layout symbol and calls the layout's arrange function
+ * @note If no arrange function is defined for the current layout, no window repositioning occurs
+ * @warning The caller must ensure m is a valid Monitor pointer
+ */
 void
 arrangemon(Monitor *m)
 { /* applies current layout to window on monitor *m */
@@ -511,6 +591,14 @@ arrangemon(Monitor *m)
 		m->lt[m->sellt]->arrange(m);
 }
 
+/**
+ * @brief Attach a client to the beginning of the monitor's client list
+ * @param c Pointer to Client structure to attach
+ * @note This function adds the client to the front of the linked list
+ * @note The client becomes the first in the monitor's client list
+ * @warning The caller must ensure c is a valid Client pointer and c->mon is set
+ * @return void
+ */
 void
 attach(Client *c)
 {
@@ -518,6 +606,14 @@ attach(Client *c)
 	c->mon->clients = c;
 }
 
+/**
+ * @brief Attach a client to the top of the monitor's stack
+ * @param c Pointer to Client structure to attach to stack
+ * @note This function adds the client to the front of the stacking order
+ * @note The stack determines which window appears on top (focused)
+ * @warning The caller must ensure c is a valid Client pointer and c->mon is set
+ * @return void
+ */
 void
 attachstack(Client *c)
 {
@@ -525,6 +621,31 @@ attachstack(Client *c)
 	c->mon->stack = c;
 }
 
+/**
+ * @brief Make a terminal window swallow its child window
+ * @param p Pointer to parent client (terminal) that will swallow the child
+ * @param c Pointer to child client that will be swallowed
+ * 
+ * This function implements window swallowing where a terminal window "swallows" its child
+ * process window. The parent window becomes hidden and the child takes its place in the
+ * window management system. This is commonly used for terminal-based applications.
+ * 
+ * The function performs several operations:
+ * - Checks if swallowing is allowed (not noswallow, not terminal itself)
+ * - Detaches child from current management
+ * - Sets child state to WithdrawnState
+ * - Swaps window IDs between parent and child
+ * - Updates title and geometry
+ * - Rearranges the monitor
+ * 
+ * @note Swallowing is only done if the child is not marked as noswallow and not a terminal
+ * @note The child window inherits the parent's monitor and geometry
+ * 
+ * @warning This function modifies client structures extensively and can cause unexpected behavior
+ * @warning POTENTIAL ISSUE: Complex state management could lead to race conditions
+ * 
+ * @return void
+ */
 void
 swallow(Client *p, Client *c)
 {
@@ -553,6 +674,31 @@ swallow(Client *p, Client *c)
 	updateclientlist();
 }
 
+/**
+ * @brief Reverse the swallowing process and restore original window
+ * @param c Pointer to client that is currently swallowing another window
+ * 
+ * This function reverses the swallowing process by restoring the original window
+ * and cleaning up the swallowing relationship. It un-fullscreens the client,
+ * restores the original window ID, maps the window, and updates the client state.
+ * 
+ * The function performs these operations:
+ * - Restores original window ID from swallowed client
+ * - Frees the swallowing client structure
+ * - Disables fullscreen mode
+ * - Updates window title
+ * - Maps and positions the window
+ * - Sets client state to NormalState
+ * - Rearranges the monitor
+ * 
+ * @note This function assumes c->swallowing is not NULL
+ * @note The client will be unfullscreened regardless of previous state
+ * 
+ * @warning MEMORY: Frees c->swallowing memory, caller must ensure it's not used afterward
+ * @warning STATE: Modifies client state significantly
+ * 
+ * @return void
+ */
 void
 unswallow(Client *c)
 {
@@ -572,9 +718,19 @@ unswallow(Client *c)
 	arrange(c->mon);
 }
 
+/**
+ * @brief Handle mouse button press events on the bar and windows
+ * @param e Pointer to XEvent containing button press data
+ * @note This function determines which area was clicked and calls appropriate handlers
+ * @note Handles clickable areas: tags, layout symbol, status text, window title, client windows, root window
+ * @note Processes status bar click signals for dwmblocks integration
+ * @warning Complex nested loops could be hard to maintain
+ * @warning Status text parsing assumes ASCII encoding
+ * @return void
+ */
 void
 buttonpress(XEvent *e)
-{ /* handles clickable areas on the bar */
+{ /* handles clickable areas on the bar and windows */
 	unsigned int i, x, click;
 	Arg arg = {0};
 	Client *c;
@@ -620,8 +776,8 @@ buttonpress(XEvent *e)
 					if (x >= ev->x) /* check click pos */
 						break;
 					statussig = ch; /* save control char as sig # */
-						}
 				}
+			}
 		} else if (selmon->showtitle) {
 			statussig = 0;
 			for (text = s = stext; *s && x <= ev->x; s++) {
@@ -631,7 +787,6 @@ buttonpress(XEvent *e)
 					x += TEXTW(text) - lrpad;
 					*s = ch;
 					text = s + 1;
-					if (x >= ev->x)
 						break;
 					statussig = ch;
 								}
@@ -651,6 +806,14 @@ buttonpress(XEvent *e)
 			buttons[i].func(click == ClkTagBar && buttons[i].arg.i == 0 ? &arg : &buttons[i].arg);
 }
 
+/**
+ * @brief Check if another window manager is already running
+ * @note This function attempts to select SubstructureRedirectMask on the root window
+ * @note If another WM is running, this will cause an error and trigger xerrorstart
+ * @note Uses temporary error handler to detect existing WM
+ * @warning This must be called before any other X operations
+ * @return void
+ */
 void
 checkotherwm(void)
 {
@@ -662,6 +825,14 @@ checkotherwm(void)
 	XSync(dpy, False);
 }
 
+/**
+ * @brief Clean up and exit dwm normally or through restart
+ * @note This function is called when dwm exits normally or through restart
+ * @note Switches to viewing all windows before shutdown and sets layout to NULL
+ * @note Releases all X keybindings and cleans up memory allocations
+ * @note Restores keyboard focus to root window and removes EWMH properties
+ * @return void
+ */
 void
 cleanup(void)
 { /* called when dwm exits normally or thru restart */
@@ -690,6 +861,14 @@ cleanup(void)
 	XDeleteProperty(dpy, root, netatom[NetActiveWindow]);
 }
 
+/**
+ * @brief Clean up and free a monitor structure
+ * @param mon Pointer to the Monitor structure to clean up
+ * @note This function removes the monitor from the global monitor list, destroys its bar window, and frees memory
+ * @warning The caller must ensure mon is a valid Monitor pointer
+ * @bug Potential memory leak if barwin destruction fails
+ * @return void
+ */
 void
 cleanupmon(Monitor *mon)
 {
@@ -706,6 +885,14 @@ cleanupmon(Monitor *mon)
 	free(mon); /* free memory */
 }
 
+/**
+ * @brief Handle client message events from applications
+ * @param e Pointer to XEvent containing client message data
+ * @note This function handles EWMH client messages like fullscreen and sticky state changes
+ * @note Processes messages for window state changes and active window notifications
+ * @warning The caller must ensure e is a valid ClientMessage XEvent
+ * @return void
+ */
 void
 clientmessage(XEvent *e)
 {
@@ -729,6 +916,15 @@ clientmessage(XEvent *e)
 	}
 }
 
+/**
+ * @brief Send a ConfigureNotify event to a client window
+ * @param c Pointer to client structure to send event to
+ * @note This function sends a synthetic ConfigureNotify event to inform the client of its current geometry
+ * @note Used to synchronize client's view of its window properties
+ * @note The event includes current position, size, border width, and stacking information
+ * @warning The caller must ensure c is a valid Client pointer
+ * @return void
+ */
 void
 configure(Client *c)
 {
@@ -748,6 +944,15 @@ configure(Client *c)
 	XSendEvent(dpy, c->win, False, StructureNotifyMask, (XEvent *)&ce);
 }
 
+/**
+ * @brief Handle configure notify events from X server
+ * @param e Pointer to XEvent containing configure notify data
+ * @note This function handles root window geometry changes and updates monitor layout accordingly
+ * @note Triggers geometry updates when screen resolution changes
+ * @warning The TODO comment indicates this function needs refactoring for better maintainability
+ * @warning Complex nested logic makes debugging difficult
+ * @return void
+ */
 void
 configurenotify(XEvent *e)
 {
@@ -776,6 +981,27 @@ configurenotify(XEvent *e)
 	}
 }
 
+/**
+ * @brief Handle configure request events from client windows
+ * @param e Pointer to XEvent containing configure request data
+ * 
+ * This function handles ConfigureRequest events sent by clients that want to change
+ * their window geometry or stacking order. For managed windows, it applies the
+ * requested changes if the window is floating or if no layout function is active.
+ * For unmanaged windows, it forwards the request directly to X server.
+ * 
+ * The function ensures floating windows stay within monitor bounds by centering
+ * them if they would extend beyond the monitor area.
+ * 
+ * @note Only applies geometry changes for floating windows or when no layout is active
+ * @note Centers floating windows that would extend beyond monitor boundaries
+ * 
+ * @warning BOUNDS CHECKING: May place windows at negative coordinates if monitor
+ *          geometry is invalid
+ * @warning PERFORMANCE: Multiple XConfigureWindow calls may impact performance
+ * 
+ * @return void
+ */
 void
 configurerequest(XEvent *e)
 {
@@ -828,6 +1054,29 @@ configurerequest(XEvent *e)
 	XSync(dpy, False);
 }
 
+/**
+ * @brief Create and initialize a new monitor structure
+ * @return Pointer to newly allocated Monitor structure, or NULL on failure
+ * 
+ * This function allocates and initializes a Monitor structure with default
+ * values from the global configuration variables. It sets up the initial
+ * tagset, layout, gap settings, and bar visibility options.
+ * 
+ * The monitor is configured with:
+ * - Both tagsets initialized to tag 1 (first tag)
+ * - Layout pointers set to first and second layout from global layouts array
+ * - All visibility flags (bar, title, tags, layout, status, floating) set from config
+ * - Gap settings initialized from global variables
+ * - Layout symbol copied from first layout
+ * 
+ * @note The caller is responsible for adding this monitor to the global monitor list
+ * @note Uses ecalloc() which exits on allocation failure
+ * 
+ * @warning MEMORY: Returns NULL if ecalloc() fails (though ecalloc() typically exits)
+ * @warning CONFIGURATION: Depends on global variables being properly initialized
+ * 
+ * @return Pointer to initialized Monitor structure
+ */
 Monitor *
 createmon(void)
 {
@@ -854,6 +1103,26 @@ createmon(void)
 	return m;
 }
 
+/**
+ * @brief Handle destroy window notify events from X server
+ * @param e Pointer to XEvent containing destroy window data
+ * 
+ * This function handles DestroyNotify events which are sent when a window
+ * is destroyed. It checks if the destroyed window is a managed client
+ * or a client that is currently swallowing another window, and calls unmanage() accordingly.
+ * 
+ * The function handles two cases:
+ * 1. Direct client destruction - removes the client from DWM management
+ * 2. Swallowing client destruction - removes the parent client that was swallowing
+ * 
+ * @note This is the primary way windows are removed from DWM's control
+ * @note Swallowing relationships are properly cleaned up during destruction
+ * 
+ * @warning The caller must ensure e is a valid DestroyNotify XEvent
+ * @warning MEMORY: No explicit NULL check for wintoclient() result, but unmanage() handles NULL
+ * 
+ * @return void
+ */
 void
 destroynotify(XEvent *e)
 {
@@ -867,6 +1136,23 @@ destroynotify(XEvent *e)
 		unmanage(c->swallowing, 1);
 }
 
+/**
+ * @brief Remove a client from the monitor's client list
+ * @param c Pointer to Client structure to detach
+ * 
+ * This function removes a client from the beginning of the monitor's client list
+ * by updating the next pointer of the previous client to point to the
+ * client after the one being detached. It also clears any tagmarked
+ * references that point to this client.
+ * 
+ * @note This function only removes from the client list, not from the stack
+ * @note The client remains in the stack and may still be focused
+ * 
+ * @warning The caller must ensure c is a valid Client pointer and c->mon is set
+ * @warning This function does not update focus or arrange windows
+ * 
+ * @return void
+ */
 void
 detach(Client *c)
 {
@@ -1116,7 +1402,7 @@ focusstack(const Arg *arg)
 {
 	int i = stackpos(arg);
 	Client *c, *p;
- 
+
 	if(i < 0)
 		return;
 	for(p = NULL, c = selmon->clients; c && (i || !ISVISIBLE(c));
@@ -1410,6 +1696,40 @@ loadxrdb(void)
   XCloseDisplay(display);
 }
 
+/**
+ * @brief Manage a new window and integrate it into the window management system
+ * @param w Window ID of the new window to manage
+ * @param wa Pointer to XWindowAttributes containing initial window properties
+ * 
+ * This function is called when a new window requests to be mapped. It creates a Client
+ * structure to represent the window, applies configuration rules, handles window swallowing,
+ * and integrates the window into the appropriate monitor's client list and stack.
+ * 
+ * The function performs several critical operations:
+ * 1. Creates and initializes a Client structure
+ * 2. Extracts window properties (class, title, PID)
+ * 3. Applies matching rules from config.h for tags, floating state, etc.
+ * 4. Handles transient windows (inherit parent's properties)
+ * 5. Implements window swallowing for terminal-child relationships
+ * 6. Ensures window fits within monitor bounds
+ * 7. Sets up event masks and window properties
+ * 8. Maps the window and potentially performs swallowing
+ * 
+ * @note This is the primary entry point for all new windows in DWM
+ * @note Window swallowing allows terminals to "swallow" their child processes
+ * @note Transient windows inherit properties from their parent window
+ * 
+ * @warning COMPLEXITY: This function performs many operations and has complex
+ *          control flow that can be difficult to debug
+ * @warning PERFORMANCE: Multiple function calls in sequence may impact startup time
+ * @warning MEMORY: Client structure allocation could fail if system is out of memory
+ * @warning RACE CONDITIONS: Window positioning calculations assume certain monitor
+ *          properties are valid
+ * @warning SIDE EFFECTS: Window swallowing can cause unexpected behavior with
+ *          some applications
+ * 
+ * @return void
+ */
 void
 manage(Window w, XWindowAttributes *wa)
 { /* after a window is passed from maprequest, manage determines how to treat it and add it to the stack */
@@ -2230,75 +2550,7 @@ tagmon(const Arg *arg)
 	sendmon(selmon->sel, dirtomon(arg->i));
 }
 
-
 /* layouts no longer needed here because of vanitygaps.c */
-
-/*
-void
-tile(Monitor *m)
-{
-	unsigned int i, n, h, mw, my, ty;
-	Client *c;
-
-	for (n = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), n++);
-	if (n == 0)
-		return;
-
-	if (n > m->nmaster)
-		mw = m->nmaster ? m->ww * m->mfact : 0;
-	else
-		mw = m->ww;
-	for (i = my = ty = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), i++)
-		if (i < m->nmaster) {
-			h = (m->wh - my) / (MIN(n, m->nmaster) - i);
-			resize(c, m->wx, m->wy + my, mw - (2*c->bw), h - (2*c->bw), 0);
-			if (my + HEIGHT(c) < m->wh)
-				my += HEIGHT(c);
-		} else {
-			h = (m->wh - ty) / (n - i);
-			resize(c, m->wx + mw, m->wy + ty, m->ww - mw - (2*c->bw), h - (2*c->bw), 0);
-			if (ty + HEIGHT(c) < m->wh)
-				ty += HEIGHT(c);
-		}
-}
-*/
-
-/*
-void
-spiral(Monitor *m)
-// spiral layout for use with fullgaps, mostly works
-// every iteration splits remaining space in half, altering direction
-// even splits horiz, odd splits vert
-// final window takes remaining area
-{
-	unsigned int i, n;
-	int nx, ny, nw, nh;
-	Client *c;
-
-	for (n = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), n++); // loop all tiled windows
-	if (n == 0) // if no tiles then exit
-		return;
-
-	nx = m->wx + m->gap->gappx; // set geometry while respecting gaps
-	ny = m->wy + m->gap->gappx;
-	nw = m->ww - 2 * m->gap->gappx; // double for inner gaps
-	nh = m->wh - 2 * m->gap->gappx;
-
-	for (i = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), i++) {
-		if (i == n - 1) { // give the final window all remaining space
-			resize(c, nx, ny, nw - 2 * c->bw, nh - 2 * c->bw, 0); // adjust size for client's border
-		} else if (i % 2) { // odd indexed windows get top half (vertically)
-			resize(c, nx, ny, nw - 2 * c->bw, nh / 2 - m->gap->gappx - 2 * c->bw, 0); // resize to half height minus inner gap
-			ny += nh / 2 + m->gap->gappx; // move ny to next available vert space
-			nh -= nh / 2 + m->gap->gappx; // reduce nh accordingly
-		} else { // now deal with even index --> left half horizontally
-			resize(c, nx, ny, nw / 2 - m->gap->gappx - 2 * c->bw, nh - 2 * c->bw, 0); // same logic as w/ the odds
-			nx += nw / 2 + m->gap->gappx;
-			nw -= nw / 2 + m->gap->gappx;
-		}
-	}
-}
-*/
 
 void
 togglebar(const Arg *arg)
