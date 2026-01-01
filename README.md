@@ -20,7 +20,21 @@ some occasional modification here and there;
 * [swallow](https://dwm.suckless.org/patches/swallow/)
 * [vanitygaps](https://dwm.suckless.org/patches/vanitygaps/)
 * [xrdb](https://dwm.suckless.org/patches/xrdb/)
-
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
 
 ## installation, setup:
 ```
