@@ -1,9 +1,5 @@
-## dwm - dynamic window manager - bread's build
-![my build](bread_dwm.png)
-comes with no guarantees or warranties <sub>(this means things may not work as expected, or at all)</sub> :^)
-
-note: I'd highly recommend setting up your own build! using mine or anyone else's is a starting point, but patching dwm manually not only allows for precise customization, but it will also allow you to learn how your WM works.
-a great way to test build changes without refreshing/restarting your running WM is with [Xephyr](https://wiki.archlinux.org/title/Xephyr), a nested X server that runs as an application.
+## dwm - dynamic window manager
+Aa great way to test build changes without refreshing/restarting your running WM is with [Xephyr](https://wiki.archlinux.org/title/Xephyr), a nested X server that runs as an application.
 
 ## patches applied:
 some occasional modification here and there;
@@ -28,8 +24,8 @@ some occasional modification here and there;
 
 ## installation, setup:
 ```
-git clone https://github.com/BreadOnPenguins/dwm
-cd dwm
+git clone https://github.com/DissenterNet/dwm-dnet.git
+cd dwm-dnet
 sudo make clean install
 ```
 
@@ -38,16 +34,11 @@ sudo make clean install
 * Configure settings (fonts, bindings, gap pixels, etc) in **config.def.h** before compiling.
   - Defaults: Mod is bound to the windows key
   - ```mod + enter``` to open terminal
-  - ```mod + q``` to quit window
+  - ```mod + q``` to quit on a window to close it or on the bg to open the quit prompt
   - ```mod + shift + backspace``` to fully exit
 
-
-I use [dwmblocks](https://github.com/torrinfail/dwmblocks) for my statusbar ([bar scripts](https://github.com/BreadOnPenguins/scripts)), included in ```~/.xprofile``` with ```exec dwmblocks```.
-If you intend to use another statusbar, [modify dwm appropriately](https://dwm.suckless.org/patches/anybar/) :)
-
-
 ## colors, other stuff:
-If you aren't using ```~/.Xresources``` with or without [pywal16](https://github.com/eylles/pywal16), default color palette is a variant of [Nord](https://www.nordtheme.com/).
+If you aren't using ```~/.Xresources``` with or without pywal, default color palette is a variant of [Nord](https://www.nordtheme.com/).
 
 
 I have wal generate a template containing [dwm Xresource strings](https://dwm.suckless.org/patches/xrdb/). Then, I merge it with wal's auto-generated Xresources file, using ```xrdb -merge```.
@@ -71,11 +62,6 @@ cat ~/.Xresources ~/.cache/wal/xrdb_extra | xrdb -merge
 xdotool key super+ctrl+backslash # xrdb refresh keybind
 ```
 
-Alternatively, if you prefer a different color-setting method, follow the instructions on [pywal16's wiki](https://github.com/eylles/pywal16/wiki/Customization#dwm).
-
-
-I use [slock](https://tools.suckless.org/slock/) for a lockscreen (build will be uploaded eventually), activated via keybind.
-
-My config has a few glyphs used cosmetically; for those to render properly, install a [font with extra glyphs](https://www.nerdfonts.com/#home).
+The config has a few glyphs used cosmetically; for those to render properly, install a [font with extra glyphs](https://www.nerdfonts.com/#home).
 
 #### The [GNU Quilt](https://savannah.nongnu.org/projects/quilt/quilt/) system (used by Debian to manage patches in source packages) can be used to easily manage, apply, and reverse suckless software patches, and [this guide](https://codeberg.org/mok0/suckless-patches) (including ```suckless-patches.py```) can help download and prepare patches for use with Quilt. Thanks to [mok0](https://github.com/BreadOnPenguins/dwm/issues/1) for sharing!
