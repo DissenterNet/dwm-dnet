@@ -2,7 +2,8 @@
 
 /* APPEARANCE */
 #include <X11/X.h>
-static unsigned int borderpx        = 1;        /* border pixel of windows */
+#include <X11/Xutil.h>
+static unsigned int borderpx        = 2;       /* border pixel of windows */
 static unsigned int snap            = 32;       /* snap pixel */
 static const unsigned int gappih    = 10;       /* horiz inner gap between windows */
 static const unsigned int gappiv    = 10;       /* vert inner gap between windows */
@@ -18,8 +19,8 @@ static const int showstatus         = 1;        /* 0 means no status bar */
 static const int showfloating       = 0;        /* 0 means no floating indicator */
 static int topbar                   = 1;        /* 0 means bottom bar */
 
-static char dmenufont[]             = "JetBrainsMono Nerd Font:bold:size=14";
-static const char *fonts[]          = { "JetBrainsMono Nerd Font:bold:size=14:antialias=true:autohint=true" };
+static char dmenufont[]             = "SourceCodePro-nerd:bold:size=10";
+static const char *fonts[]          = { "SourceCodePro-nerd:size=10:antialias=true:autohint=true" };
 
 /* default colors used if xrdb is not loaded */
 static char normbgcolor[]           = "#2e3440";
@@ -33,7 +34,7 @@ static char *colors[][3] = {
        /*               	fg           bg           border   */
 		[SchemeNorm]      = { normfgcolor, 		normbgcolor,  	normbordercolor },
 		[SchemeSel]       = { selbgcolor, 		selfgcolor,  	selbordercolor  },
-		/* for bar --> 		{text, 				background,		null			},*/
+		/* for bar --> 	    {text, 				background,		null			},*/
 		[SchemeStatus]    = { normfgcolor, 		normbgcolor,  	normbgcolor  	}, /* status R */
 		[SchemeTagsSel]   = { normfgcolor, 		normbgcolor,  	normbgcolor  	}, /* tag L selected */
 		[SchemeTagsNorm]  = { selbordercolor, 	normbgcolor,  	normbgcolor  	}, /* tag L unselected */
@@ -47,11 +48,6 @@ static const char *lower_volume[] = { "amixer", "-D pulse", "set", "Master", "5%
 static const char *raise_volume[] = { "amixer", "-D pulse", "set", "Master", "5%+", 	NULL };
 
 /* Display brightness */
-static const char *lower_brightness[] = { "brightnessctl", "set", "5%-", NULL };
-static const char *raise_brightness[] = { "brightnessctl", "set", "5%+", NULL };
-
-/* tagging */
-static const char *tags[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9" };
 // static const char *tags[] = { "󰎤", "󰎧", "󰎪", "󰎭", "󰎱", "󰎳", "󰎶", "󰎹", "󰎼" };
 
 #include "scratchtagwins.c"
@@ -75,6 +71,14 @@ static const Rule rules[] = {
 	SCRATCHTAGWIN_RULE (scratchtagwin7, 7),
 	SCRATCHTAGWIN_RULE (scratchtagwin8, 8),
 	SCRATCHTAGWIN_RULE (scratchtagwin9, 9),
+/* Background Monitoring System */
+{ "St", "cmatrix-bg", "cmatrix-bg",      0,     1,     1,     1,    -1,    0,0,0,0,    0 },  // Full screen, sticky
+{ "St", "nvtop-monitor", "nvtop-monitor", 0,     1,     1,     1,    -1,    0,0,0,0,    0 },  // Top 2/3, sticky
+{ "St", "htop-monitor", "htop-monitor",   0,     1,     1,     1,    -1,    0,0,0,0,    0 },  // Bottom 1/3, sticky
+/* Normal applications */
+{ "St",      NULL,     NULL,           	0,         0,          1,           0,        -1, 		50,50,500,500,		5 },  // Regular terminal
+{ "code",    NULL,     NULL,          1 << 1,     0,          0,           0,        -1,     0,0,0,0,           0 },  // Tag 2, tiled
+{ "firefox", NULL,     NULL,          1 << 2,     0,          0,           0,        -1,     0,0,0,0,           0 },  // Tag 3, tiled
 };
 
 #include "vanitygaps.c"
@@ -106,13 +110,14 @@ static const Layout layouts[] = { /* alt glyphs: 󱡗 󱏋 */
 	{ MODKEY|ControlMask|ShiftMask, 	KEY,      				toggletag,      	{.ui = 1 << TAG} },
 
 #define STACKKEYS(MOD,ACTION) \
-	{ MOD, 								XK_j,     				ACTION##stack, 		{.i = INC(+1) 	} }, \
-	{ MOD, 								XK_k,     				ACTION##stack, 		{.i = INC(-1) 	} }, \
-	{ MOD, 								XK_grave, 				ACTION##stack, 		{.i = PREVSEL 	} }, \
-	{ MOD, 								XK_w,     				ACTION##stack, 		{.i = 0 		} }, \
-	{ MOD, 								XK_a,     				ACTION##stack, 		{.i = 1 		} }, \
-	{ MOD, 								XK_z,     				ACTION##stack, 		{.i = 2 		} }, \
-	{ MOD, 								XK_x,    				ACTION##stack, 		{.i = -1 		} },
+	{ MOD, 					XK_j,     				ACTION##stack, 		{.i = INC(+1) 	} }, \
+	{ MOD, 					XK_k,     				ACTION##stack, 		{.i = INC(-1) 	} }, \
+	{ MOD,					XK_Tab, 				ACTION##stack, 		{.i = PREVSEL 	} }, \
+	{ MOD, 					XK_w,     				ACTION##stack, 		{.i = 0 	} }, \
+	{ MOD, 					XK_a,     				ACTION##stack, 		{.i = 1 	} }, \
+	{ MOD, 					XK_z,     				ACTION##stack, 		{.i = 2 	} }, \
+	{ MOD, 					XK_x,    				ACTION##stack, 		{.i = -1 	} },
+
 
 /* helper for spawning shell commands in the pre dwm-5.0 fashion */
 #define SHCMD(cmd) 		{ .v = (const char*[]){ "/bin/sh", "-c", 		cmd, NULL 	} }
@@ -156,9 +161,9 @@ static const Arg tagexec[] = { /* spawn application when tag is middle-clicked *
 
 static const Key keys[] = {
   	/*modifier                     		key        				function        	argument */
-	{ MODKEY,                       	XK_d,      				spawn,          	{.v = dmenucmd } },
+	{ MODKEY,                       	XK_p,      				spawn,          	{.v = dmenucmd } },
 	{ MODKEY,                       	XK_Return, 				spawn,          	{.v = termcmd } },
-	{ MODKEY,                       	XK_grave,  				togglescratch,  	{.v = scratchpadcmd } },
+	{ MODKEY,                       	XK_Home,  				togglescratch,  	{.v = scratchpadcmd } },
 	SCRATCHTAGWIN_KEY (scratchtagwin1, 1)
 	SCRATCHTAGWIN_KEY (scratchtagwin2, 2)
 	SCRATCHTAGWIN_KEY (scratchtagwin3, 3)
@@ -269,10 +274,20 @@ static const Key keys[] = {
 
 /* APPLICATION BINDINGS */	
   	/*modifier                     		key        				function        	argument */
-	{ MODKEY|ControlMask|ShiftMask,		XK_w,          			spawn,      		{.v = (const char*[]){ BROWSER, NULL } } },
+	{ MODKEY|ShiftMask,					XK_w,          			spawn,      		{.v = (const char*[]){ BROWSER, NULL } } },
 	{ MODKEY,							XK_n,          			spawn,      		{.v = (const char*[]){ "st", "-e", "nvim", NULL } } },
 	{ MODKEY|ShiftMask,     			XK_h,          			spawn,      		{.v = (const char*[]){ "st", "-e", "htop", NULL } } },
 
+/* Background Monitor Controls */
+{ MODKEY,                    			XK_F11,      			spawn,          	{.v = (const char*[]){ "~/dotsh/scripts/advanced-monitors.sh", "toggle", NULL } } },
+{ MODKEY|ShiftMask,           			XK_F11,      			spawn,          	{.v = (const char*[]){ "~/dotsh/scripts/advanced-monitors.sh", "restart", NULL } } },
+{ MODKEY|ControlMask,          			XK_F11,      			spawn,          	{.v = (const char*[]){ "~/dotsh/scripts/advanced-monitors.sh", "stop", NULL } } },
+{ MODKEY,                    			XK_F12,      			spawn,          	{.v = (const char*[]){ "~/dotsh/scripts/advanced-monitors.sh", "status", NULL } } },
+
+/* Application Launchers */
+{ MODKEY,                    			XK_F1,       			spawn,      		{.v = (const char*[]){ "code", NULL } } },
+{ MODKEY,                    			XK_F2,       			spawn,      		{.v = (const char*[]){ "st", "-n", "dev", "-e", "nvim", NULL } } },
+{ MODKEY,                    			XK_F3,       			spawn,      		{.v = (const char*[]){ "firefox-developer-edition", NULL } } },
 };
 
 

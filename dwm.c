@@ -1166,6 +1166,25 @@ detach(Client *c)
 	*tc = c->next;
 }
 
+/**
+ * @brief Remove a client from the monitor's stack
+ * @param c Pointer to Client structure to detach from stack
+ * 
+ * This function removes a client from the stacking order by updating the
+ * snext pointer of the previous client in the stack. If the removed client
+ * was the selected client, it finds the next visible client to select.
+ * 
+ * The stack determines which window appears on top when overlapping.
+ * 
+ * @note This function only removes from the stack, not from the client list
+ * @note Updates selection to next visible client if current client was selected
+ * 
+ * @warning The caller must ensure c is a valid Client pointer and c->mon is set
+ * @warning This function does not update focus or arrange windows
+ * @warning PERFORMANCE: Linear search through stack may be inefficient with many clients
+ * 
+ * @return void
+ */
 void
 detachstack(Client *c)
 {
@@ -1180,6 +1199,26 @@ detachstack(Client *c)
 	}
 }
 
+/**
+ * @brief Find adjacent monitor in specified direction
+ * @param dir Direction to search: positive for next, negative for previous
+ * @return Pointer to adjacent Monitor structure, or current if no adjacent monitor
+ * 
+ * This function navigates the circular linked list of monitors to find the
+ * next or previous monitor based on the direction parameter. It handles
+ * edge cases where the current monitor is at the start or end of
+ * the monitor list.
+ * 
+ * @note Positive dir moves to next monitor, negative dir moves to previous
+ * @note If only one monitor exists, returns current monitor
+ * @note Monitor list is treated as circular for navigation
+ * 
+ * @warning PERFORMANCE: Linear search through monitor list may be inefficient
+ *          with many monitors
+ * @warning EDGE CASE: No validation of dir parameter bounds
+ * 
+ * @return Pointer to adjacent monitor, or selmon if no adjacent monitor exists
+ */
 Monitor *
 dirtomon(int dir)
 {
