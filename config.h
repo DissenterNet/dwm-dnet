@@ -48,7 +48,12 @@ static const char *lower_volume[] = { "amixer", "-D pulse", "set", "Master", "5%
 static const char *raise_volume[] = { "amixer", "-D pulse", "set", "Master", "5%+", 	NULL };
 
 /* Display brightness */
-// static const char *tags[] = { "󰎤", "󰎧", "󰎪", "󰎭", "󰎱", "󰎳", "󰎶", "󰎹", "󰎼" };
+static const char *lower_brightness[] = { "brightnessctl", "set", "5%-", NULL };
+static const char *raise_brightness[] = { "brightnessctl", "set", "5%+", NULL };
+
+/* tagging */
+//static const char *tags[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9" };
+static const char *tags[] = { "󰎤", "󰎧", "󰎪", "󰎭", "󰎱", "󰎳", "󰎶", "󰎹", "󰎼" };
 
 #include "scratchtagwins.c"
 
